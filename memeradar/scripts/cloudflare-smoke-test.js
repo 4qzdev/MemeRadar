@@ -1,0 +1,30 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const {pathToFileURL} = require('node:url');
+(async()=>{
+  const functionPath=path.join(__dirname,'..','functions','api','[[path]].js');
+  const source=fs.readFileSync(functionPath,'utf8');
+  const moduleUrl='data:text/javascript;base64,'+Buffer.from(source).toString('base64');
+  const {onRequest}=await import(moduleUrl);
+  const call=(pathname,method='GET')=>{
+    const route=pathname.replace(/^\/api\/?/,'');
+    const params={path:route?route.split('/'):[]};
+    return onRequest({request:new Request('https://memeradar.example'+pathname,{method}),env:{},params});
+  };
+  const health=await call('/api/health');
+  if(health.status!==200)throw new Error(`Cloudflare health returned ${health.status}`);
+  const payload=await health.json();
+  if(!payload.ok||payload.version!=='5.2')throw new Error('Cloudflare health payload mismatch');
+  const invalid=await call('/api/security/ethereum/not-an-address');
+  if(invalid.status!==400)throw new Error(`Cloudflare address validation returned ${invalid.status}`);
+  const unsupported=await call('/api/security/not-supported/0x1234567890123456789012345678901234567890');
+  if(unsupported.status!==422)throw new Error(`Cloudflare unsupported chain returned ${unsupported.status}`);
+  const unknown=await call('/api/does-not-exist');
+  if(unknown.status!==404)throw new Error(`Cloudflare unknown route returned ${unknown.status}`);
+  const method=await call('/api/health','POST');
+  if(method.status!==405)throw new Error(`Cloudflare method guard returned ${method.status}`);
+  const routes=JSON.parse(fs.readFileSync(path.join(__dirname,'..','public','_routes.json'),'utf8'));
+  if(routes.version!==1||!routes.include.includes('/api/*'))throw new Error('Cloudflare routes config mismatch');
+  process.stdout.write('PASS: Cloudflare Function syntax/import, health route, address validation, unsupported chain, unknown route, method guard, and API-only invocation routes.\n');
+})().catch(e=>{console.error('FAIL:',e.message);process.exitCode=1;});

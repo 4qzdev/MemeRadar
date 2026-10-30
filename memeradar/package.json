@@ -1,0 +1,14 @@
+{
+  "name": "memeradar",
+  "version": "5.2.0",
+  "private": true,
+  "description": "Futuristic read-only multi-chain token discovery, research, and third-party security terminal",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node scripts/smoke-test.js && node scripts/cloudflare-smoke-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
